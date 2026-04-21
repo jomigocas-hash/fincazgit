@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+*.log
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# DB
+*.sql.bak
+
+# OS
+.DS_Store
+*.swp
+.fuse_hidden*
+.~lock.*
