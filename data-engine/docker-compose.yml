@@ -1,0 +1,51 @@
+services:
+
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: inmuebles_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: inmuebles
+      POSTGRES_USER: inmuebles_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inmuebles_user -d inmuebles"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: inmuebles_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://inmuebles_user:${DB_PASSWORD}@db:5432/inmuebles
+      API_KEY: ${API_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile.scraper
+    container_name: inmuebles_scraper
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://inmuebles_user:${DB_PASSWORD}@db:5432/inmuebles
+      SCRAPER_DELAY: ${SCRAPER_DELAY:-2.0}
+      MAX_PAGES: ${MAX_PAGES:-50}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

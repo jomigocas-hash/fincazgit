@@ -7,7 +7,7 @@ import logging
 from scrapers import FincaRaizScraper, MetrocuadradoScraper, CiencuadrasScraper
 from normalizer import normalize
 from deduplicator import deduplicate
-from db import bulk_upsert
+from db import bulk_upsert, get_existing_canonical_ids
 from config import MAX_PAGES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -37,15 +37,20 @@ def run_pipeline(portal: str, city: str, operation: str, max_pages: int):
     normalized = [normalize(p) for p in raw_properties]
     logger.info(f"Normalizados: {len(normalized)} inmuebles")
 
-    # 3. Deduplicación
+    # 3. Deduplicación (dentro del batch)
     unique = deduplicate(normalized)
     logger.info(f"Únicos tras deduplicación: {len(unique)} (eliminados: {len(normalized) - len(unique)})")
 
+    # 3b. Filtrar los que ya existen en DB por canonical_id
+    existing_ids = get_existing_canonical_ids(city, operation)
+    new_props = [p for p in unique if p.canonical_id not in existing_ids]
+    logger.info(f"Nuevos vs DB: {len(new_props)} (ya existían: {len(unique) - len(new_props)})")
+
     # 4. Persistencia
-    saved = bulk_upsert(unique)
+    saved = bulk_upsert(new_props)
     logger.info(f"Guardados/actualizados en DB: {saved}")
 
-    return unique
+    return new_props
 
 
 if __name__ == "__main__":

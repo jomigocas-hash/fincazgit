@@ -54,7 +54,9 @@ def list_properties(
         filters.append("neighborhood ILIKE %(neighborhood)s")
         params["neighborhood"] = f"%{neighborhood}%"
 
-    where = ("WHERE " + " AND ".join(filters)) if filters else ""
+    # is_active siempre se incluye como filtro base
+    filters.append("is_active = TRUE")
+    where = "WHERE " + " AND ".join(filters)
     offset = (page - 1) * page_size
     params["limit"] = page_size
     params["offset"] = offset
@@ -62,19 +64,18 @@ def list_properties(
     sql = f"""
         SELECT id, canonical_id, source_portal, property_type, operation_type,
                city, neighborhood, address,
-               ST_Y(location::geometry) AS latitude,
-               ST_X(location::geometry) AS longitude,
+               CASE WHEN location IS NOT NULL THEN ST_Y(location::geometry) ELSE NULL END AS latitude,
+               CASE WHEN location IS NOT NULL THEN ST_X(location::geometry) ELSE NULL END AS longitude,
                area_m2, bedrooms, bathrooms, parking, floor, stratum,
                price, price_per_m2, currency, admin_fee,
                title, url, image_urls, published_at, scraped_at
         FROM properties
         {where}
-        AND is_active = TRUE
         ORDER BY scraped_at DESC
         LIMIT %(limit)s OFFSET %(offset)s
     """
 
-    count_sql = f"SELECT COUNT(*) FROM properties {where} AND is_active = TRUE"
+    count_sql = f"SELECT COUNT(*) FROM properties {where}"
 
     with get_conn() as conn:
         with conn.cursor() as cur:

@@ -194,22 +194,24 @@ def save_search(demand: DemandSearch):
 @router.get("/searches")
 def list_searches(agent_id: Optional[int] = Query(None), limit: int = 50):
     """Lista las búsquedas guardadas, opcionalmente filtradas por agente."""
-    sql = """
+    filters = ["is_active = TRUE"]
+    params: dict = {"limit": limit}
+
+    if agent_id:
+        filters.append("agent_id = %(agent_id)s")
+        params["agent_id"] = agent_id
+
+    where = "WHERE " + " AND ".join(filters)
+    sql = f"""
         SELECT * FROM demand_searches
-        WHERE is_active = TRUE
         {where}
         ORDER BY created_at DESC
         LIMIT %(limit)s
     """
-    params = {"limit": limit}
-    where = ""
-    if agent_id:
-        where = "AND agent_id = %(agent_id)s"
-        params["agent_id"] = agent_id
 
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(sql.format(where=where), params)
+            cur.execute(sql, params)
             rows = cur.fetchall()
 
     return [dict(r) for r in rows]

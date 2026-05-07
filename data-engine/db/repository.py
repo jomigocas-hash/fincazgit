@@ -6,7 +6,20 @@ from models import Property
 
 
 def get_connection():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+
+
+def get_existing_canonical_ids(city: str, operation_type: str) -> set[str]:
+    """Retorna el conjunto de canonical_ids ya existentes en DB para ciudad+operación."""
+    sql = """
+        SELECT DISTINCT canonical_id FROM properties
+        WHERE city = %(city)s AND operation_type = %(operation_type)s
+          AND canonical_id IS NOT NULL
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, {"city": city, "operation_type": operation_type})
+            return {row["canonical_id"] for row in cur.fetchall()}
 
 
 def upsert_property(prop: Property) -> None:

@@ -2,28 +2,22 @@
 Scraper para Finca Raíz (fincaraiz.com.co).
 Lee los datos desde __NEXT_DATA__ inyectado por Next.js en el HTML.
 """
-import re
-import json
 from typing import Generator
-from datetime import datetime
 from models import Property
 from .base_scraper import BaseScraper
 
 BASE_URL = "https://www.fincaraiz.com.co"
 
-OPERATION_SLUGS = {
-    "venta": "venta",
-    "arriendo": "arriendo",
-}
+OPERATION_SLUGS = {"venta": "venta", "arriendo": "arriendo"}
 
 CITY_SLUGS = {
-    "bogota":    "bogota-d-c",
-    "medellin":  "medellin",
-    "cali":      "cali",
+    "bogota":       "bogota-d-c",
+    "medellin":     "medellin",
+    "cali":         "cali",
     "barranquilla": "barranquilla",
-    "cartagena": "cartagena",
-    "bucaramanga": "bucaramanga",
-    "pereira":   "pereira",
+    "cartagena":    "cartagena",
+    "bucaramanga":  "bucaramanga",
+    "pereira":      "pereira",
 }
 
 
@@ -42,49 +36,48 @@ class FincaRaizScraper(BaseScraper):
 
             try:
                 response = self.get(url)
-                data = self._extract_next_data(response.text)
+                data = self.extract_next_data(response.text)
             except Exception as e:
                 self.logger.error(f"Error en página {page}: {e}")
                 break
 
-            listings = (
+            search_fast = (
                 data.get("props", {})
                     .get("pageProps", {})
                     .get("fetchResult", {})
                     .get("searchFast", {})
-                    .get("data", [])
             )
+            listings = search_fast.get("data", []) or []
 
             if not listings:
                 self.logger.info("Sin más resultados.")
                 break
 
             for raw in listings:
+                source_id = self.safe_source_id(raw.get("id"))
+                if not source_id:
+                    self.logger.warning("Listing sin ID, omitiendo.")
+                    continue
                 try:
                     yield self.parse_listing(raw)
                 except Exception as e:
-                    self.logger.warning(f"Error parseando listing {raw.get('id')}: {e}")
+                    self.logger.warning(f"Error parseando listing {source_id}: {e}")
 
-            # Verificar paginación
-            paginator = (
-                data.get("props", {})
-                    .get("pageProps", {})
-                    .get("fetchResult", {})
-                    .get("searchFast", {})
-                    .get("paginatorInfo", {})
-            )
-            if not paginator.get("hasMorePages", False):
+            if not search_fast.get("paginatorInfo", {}).get("hasMorePages", False):
                 self.logger.info("Última página alcanzada.")
                 break
 
             page += 1
 
     def parse_listing(self, raw: dict) -> Property:
-        price_data  = raw.get("price", {}) or {}
-        locations   = raw.get("locations", {}) or {}
-        images      = [img.get("image", "") for img in (raw.get("images") or []) if img.get("image")]
+        price_data = raw.get("price", {}) or {}
+        locations  = raw.get("locations", {}) or {}
+        images     = [
+            img.get("image", "")
+            for img in (raw.get("images") or [])
+            if img.get("image")
+        ]
 
-        # locations es un dict con claves: city, state, neighbourhood, etc.
         city_name    = ""
         neighborhood = ""
         city_list    = locations.get("city", []) or []
@@ -98,7 +91,6 @@ class FincaRaizScraper(BaseScraper):
         elif loc_main:
             neighborhood = loc_main.get("name", "")
 
-        # property_type y operation_type son dicts {'id':..., 'name':...}
         prop_type = raw.get("property_type", {})
         op_type   = raw.get("operation_type", {})
         if isinstance(prop_type, dict):
@@ -106,12 +98,11 @@ class FincaRaizScraper(BaseScraper):
         if isinstance(op_type, dict):
             op_type = op_type.get("name", "")
 
-        # admin_fee es un dict {'amount':..., 'currency':...}
         admin_fee_raw = raw.get("commonExpenses", {}) or {}
         admin_fee = admin_fee_raw.get("amount") if isinstance(admin_fee_raw, dict) else admin_fee_raw
 
-        prop = Property(
-            source_id      = str(raw.get("id", "")),
+        return Property(
+            source_id      = self.safe_source_id(raw.get("id")),
             source_portal  = self.PORTAL,
             property_type  = prop_type,
             operation_type = op_type,
@@ -132,24 +123,6 @@ class FincaRaizScraper(BaseScraper):
             description    = raw.get("description", ""),
             image_urls     = images,
             url            = f"{BASE_URL}{raw.get('link', '')}",
-            published_at   = self._parse_date(raw.get("created_at")),
-            updated_at     = self._parse_date(raw.get("updated_at")),
+            published_at   = self.parse_date(raw.get("created_at")),
+            updated_at     = self.parse_date(raw.get("updated_at")),
         )
-        return prop
-
-    def _extract_next_data(self, html: str) -> dict:
-        match = re.search(
-            r'<script id="__NEXT_DATA__"[^>]*>({.*?})</script>',
-            html, re.DOTALL
-        )
-        if not match:
-            raise ValueError("__NEXT_DATA__ no encontrado en el HTML")
-        return json.loads(match.group(1))
-
-    def _parse_date(self, raw: str | None) -> datetime | None:
-        if not raw:
-            return None
-        try:
-            return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        except Exception:
-            return None

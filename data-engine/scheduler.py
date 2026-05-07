@@ -52,8 +52,11 @@ schedule.every().day.at("02:00").do(run_all)
 logger.info("Scheduler iniciado. Próxima ejecución: 02:00 AM diario.")
 logger.info("Presiona Ctrl+C para detener.")
 
-# Ejecutar una vez al arrancar para poblar datos inmediatamente
-run_all()
+# Solo correr al arrancar si se pasa --now como argumento
+import sys
+if "--now" in sys.argv:
+    logger.info("Flag --now detectado, ejecutando inmediatamente.")
+    run_all()
 
 while True:
     schedule.run_pending()

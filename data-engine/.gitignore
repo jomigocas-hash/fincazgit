@@ -1,0 +1,20 @@
+# Entornos virtuales
+venv/
+api/venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Variables de entorno (nunca subir al repo)
+.env
+api/.env
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+.idea/
+
+# Playwright
+playwright/.local-browsers/
