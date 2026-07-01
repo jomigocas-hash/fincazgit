@@ -2,6 +2,10 @@
 Score de precio: indica si un inmueble está caro o barato vs el mercado de su zona.
 Compara price_per_m2 del inmueble contra el promedio del barrio/ciudad.
 """
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from fastapi import APIRouter, HTTPException
 from db import get_conn
 

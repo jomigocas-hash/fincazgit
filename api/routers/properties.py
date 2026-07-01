@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 from db import get_conn

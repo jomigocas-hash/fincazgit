@@ -2,6 +2,10 @@
 Motor de Matching: compara criterios de demanda contra la oferta disponible.
 Devuelve inmuebles ordenados por score (0-100).
 """
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel

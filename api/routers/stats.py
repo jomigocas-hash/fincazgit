@@ -2,6 +2,10 @@
 Endpoints de estadísticas de mercado.
 Responde preguntas como: precio promedio por m², oferta por barrio, etc.
 """
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from fastapi import APIRouter, Query
 from typing import Optional
 from db import get_conn
